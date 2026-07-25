@@ -1,0 +1,20 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/lootdb
+    username: ${DB_USERNAME:loot}
+    password: ${DB_PASSWORD:loot}
+
+daraja:
+  consumer-key: ${DARAJA_CONSUMER_KEY}
+  consumer-secret: ${DARAJA_CONSUMER_SECRET}
+  shortcode: ${DARAJA_SHORTCODE:174379}
+  passkey: ${DARAJA_PASSKEY}
+  callback-base-url: ${DARAJA_CALLBACK_BASE_URL:http://localhost:8080}
+
+flutterwave:
+  secret-key: ${FLW_SECRET_KEY}
+  webhook-secret-hash: ${FLW_WEBHOOK_SECRET_HASH}
+
+logging:
+  level:
+    com.loot: DEBUG

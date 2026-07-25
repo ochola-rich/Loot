@@ -1,0 +1,20 @@
+spring:
+  datasource:
+    url: ${DATABASE_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+
+daraja:
+  consumer-key: ${DARAJA_CONSUMER_KEY}
+  consumer-secret: ${DARAJA_CONSUMER_SECRET}
+  shortcode: ${DARAJA_SHORTCODE}
+  passkey: ${DARAJA_PASSKEY}
+  callback-base-url: ${DARAJA_CALLBACK_BASE_URL}
+
+flutterwave:
+  secret-key: ${FLW_SECRET_KEY}
+  webhook-secret-hash: ${FLW_WEBHOOK_SECRET_HASH}
+
+logging:
+  level:
+    com.loot: INFO

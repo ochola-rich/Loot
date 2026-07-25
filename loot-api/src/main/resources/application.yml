@@ -1,0 +1,6 @@
+spring:
+  application:
+    name: loot
+  threads:
+    virtual:
+      enabled: true
