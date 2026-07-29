@@ -1,19 +1,24 @@
 package com.loot.domain.model;                                                      
                                                                                     
-import jakarta.persistence.*;                                                       
-import lombok.Getter;                                                               
-import lombok.Setter;                                                               
-import lombok.NoArgsConstructor;                                                    
-import lombok.AllArgsConstructor;                                                   
-import java.math.BigDecimal;                                                        
-                                                                                    
-@Entity                                                                             
-@Table(name = "prize_disbursals")                                                   
-@Getter                                                                             
-@Setter                                                                             
-@NoArgsConstructor                                                                  
-@AllArgsConstructor                                                                 
-public class PrizeDisbursal {                                                       
+import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.Setter;
+import lombok.NoArgsConstructor;
+import lombok.AllArgsConstructor;
+import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.annotation.LastModifiedDate;
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
+import java.math.BigDecimal;
+import java.time.Instant;
+
+@Entity
+@Table(name = "prize_disbursals")
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@EntityListeners(AuditingEntityListener.class)
+public class PrizeDisbursal {                                                     
                                                                                     
     @Id                                                                             
     @GeneratedValue(strategy = GenerationType.IDENTITY)                             
@@ -31,6 +36,14 @@ public class PrizeDisbursal {
     @Column(nullable = false)                                                       
     private String gateway; // e.g., "MPESA"                                        
                                                                                     
-    @Column(nullable = false)                                                       
-    private String status; // e.g., "PROCESSING", "DISBURSED", "FAILED"             
+    @Column(nullable = false)
+    private String status; // e.g., "PROCESSING", "DISBURSED", "FAILED"
+
+    @CreatedDate
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private Instant createdAt;
+
+    @LastModifiedDate
+    @Column(name = "updated_at", nullable = false)
+    private Instant updatedAt;
 }

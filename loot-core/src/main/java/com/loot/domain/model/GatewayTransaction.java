@@ -1,19 +1,22 @@
 package com.loot.domain.model;                                                      
                                                                                         
-import jakarta.persistence.*;                                                       
-import lombok.Getter;                                                               
-import lombok.Setter;                                                               
-import lombok.NoArgsConstructor;                                                    
-import lombok.AllArgsConstructor;                                                   
-import java.time.Instant;                                                           
-                                                                                    
-@Entity                                                                             
-@Table(name = "gateway_transactions")                                               
-@Getter                                                                             
-@Setter                                                                             
-@NoArgsConstructor                                                                  
-@AllArgsConstructor                                                                 
-public class GatewayTransaction {                                                   
+import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.Setter;
+import lombok.NoArgsConstructor;
+import lombok.AllArgsConstructor;
+import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
+import java.time.Instant;
+
+@Entity
+@Table(name = "gateway_transactions")
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@EntityListeners(AuditingEntityListener.class)
+public class GatewayTransaction {                                                 
                                                                                     
     @Id                                                                             
     @GeneratedValue(strategy = GenerationType.IDENTITY)                             
@@ -31,6 +34,7 @@ public class GatewayTransaction {
     @Column(nullable = false)                                                       
     private String gateway; // e.g., "MPESA"                                        
                                                                                     
-    @Column(name = "created_at", nullable = false, updatable = false)               
-    private Instant createdAt = Instant.now();                                      
+    @CreatedDate
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private Instant createdAt;                                    
 }                                         
