@@ -5,6 +5,7 @@ spring:
     password: ${DB_PASSWORD:loot}
 
 daraja:
+  base-url: ${DARAJA_BASE_URL:https://sandbox.safaricom.co.ke}
   consumer-key: ${DARAJA_CONSUMER_KEY}
   consumer-secret: ${DARAJA_CONSUMER_SECRET}
   shortcode: ${DARAJA_SHORTCODE:174379}
