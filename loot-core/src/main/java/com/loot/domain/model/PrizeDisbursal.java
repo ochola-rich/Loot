@@ -39,6 +39,9 @@ public class PrizeDisbursal {
     @Column(nullable = false)
     private String status; // e.g., "PROCESSING", "DISBURSED", "FAILED"
 
+    @Column(name = "gateway_ref")
+    private String gatewayRef; // e.g., Daraja ConversationID, Flutterwave transfer id
+
     @CreatedDate
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;

@@ -11,6 +11,8 @@ daraja:
   shortcode: ${DARAJA_SHORTCODE}
   passkey: ${DARAJA_PASSKEY}
   callback-base-url: ${DARAJA_CALLBACK_BASE_URL}
+  initiator-name: ${DARAJA_INITIATOR_NAME}
+  security-credential: ${DARAJA_SECURITY_CREDENTIAL}
 
 flutterwave:
   secret-key: ${FLW_SECRET_KEY}
