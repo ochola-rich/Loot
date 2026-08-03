@@ -30,7 +30,7 @@ public class DarajaAuthService {
             @Value("${daraja.base-url:https://sandbox.safaricom.co.ke}") String baseUrl,
             @Value("${daraja.consumer-key}") String consumerKey,
             @Value("${daraja.consumer-secret}") String consumerSecret) {
-        this.restClient = RestClient.create(baseUrl);
+        this.restClient = DarajaHttpClients.restClient(baseUrl);
         this.consumerKey = consumerKey;
         this.consumerSecret = consumerSecret;
     }

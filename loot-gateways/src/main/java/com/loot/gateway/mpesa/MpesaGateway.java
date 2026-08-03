@@ -39,7 +39,7 @@ public class MpesaGateway implements PaymentGateway {
         this.authService = authService;
         this.stkPushRequestFactory = new StkPushRequestFactory(shortcode, passkey, callbackBaseUrl);
         this.b2cRequestFactory = new B2CRequestFactory(initiatorName, securityCredential, shortcode, callbackBaseUrl);
-        this.restClient = RestClient.create(baseUrl);
+        this.restClient = DarajaHttpClients.restClient(baseUrl);
         this.webhookEventRepository = webhookEventRepository;
         this.objectMapper = objectMapper;
     }
