@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.loot.domain.model.WebhookEvent;
 import com.loot.domain.repository.WebhookEventRepository;
+import com.loot.gateway.GatewayHttpClients;
 import com.loot.gateway.CollectionRequest;
 import com.loot.gateway.CollectionResult;
 import com.loot.gateway.DisbursalRequest;
@@ -39,7 +40,7 @@ public class MpesaGateway implements PaymentGateway {
         this.authService = authService;
         this.stkPushRequestFactory = new StkPushRequestFactory(shortcode, passkey, callbackBaseUrl);
         this.b2cRequestFactory = new B2CRequestFactory(initiatorName, securityCredential, shortcode, callbackBaseUrl);
-        this.restClient = DarajaHttpClients.restClient(baseUrl);
+        this.restClient = GatewayHttpClients.restClient(baseUrl);
         this.webhookEventRepository = webhookEventRepository;
         this.objectMapper = objectMapper;
     }

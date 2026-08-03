@@ -1,5 +1,6 @@
 package com.loot.gateway.mpesa;
 
+import com.loot.gateway.GatewayHttpClients;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
@@ -30,7 +31,7 @@ public class DarajaAuthService {
             @Value("${daraja.base-url:https://sandbox.safaricom.co.ke}") String baseUrl,
             @Value("${daraja.consumer-key}") String consumerKey,
             @Value("${daraja.consumer-secret}") String consumerSecret) {
-        this.restClient = DarajaHttpClients.restClient(baseUrl);
+        this.restClient = GatewayHttpClients.restClient(baseUrl);
         this.consumerKey = consumerKey;
         this.consumerSecret = consumerSecret;
     }

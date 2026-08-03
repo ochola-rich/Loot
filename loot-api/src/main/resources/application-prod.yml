@@ -15,6 +15,7 @@ daraja:
   security-credential: ${DARAJA_SECURITY_CREDENTIAL}
 
 flutterwave:
+  base-url: ${FLW_BASE_URL:https://api.flutterwave.com}
   secret-key: ${FLW_SECRET_KEY}
   webhook-secret-hash: ${FLW_WEBHOOK_SECRET_HASH}
 
