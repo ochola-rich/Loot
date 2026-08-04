@@ -10,14 +10,13 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
-import java.util.UUID;
-
 @Component("flutterwaveGateway")
 public class FlutterwaveGateway implements PaymentGateway {
 
     private final RestClient restClient;
     private final String secretKey;
     private final FlutterwaveChargeRequestFactory chargeRequestFactory = new FlutterwaveChargeRequestFactory();
+    private final FlutterwaveTransferRequestFactory transferRequestFactory = new FlutterwaveTransferRequestFactory();
 
     public FlutterwaveGateway(
             @Value("${flutterwave.base-url:https://api.flutterwave.com}") String baseUrl,
@@ -54,7 +53,28 @@ public class FlutterwaveGateway implements PaymentGateway {
 
     @Override
     public DisbursalResult initiatePayout(DisbursalRequest req) {
-        // Implemented in t25 (FlutterwaveTransferAdapter) - still a stub for now.
-        return new DisbursalResult(true, "flw_tx_" + UUID.randomUUID().toString().substring(0, 8), "Transfer Initiated");
+        String amount = req.amount().toPlainString();
+        FlutterwaveTransferRequest transferRequest = transferRequestFactory.build(
+                req.transactionId(), req.recipientPhone(), amount, req.description());
+
+        FlutterwaveTransferResponse response;
+        try {
+            response = restClient.post()
+                    .uri("/v3/transfers")
+                    .header("Authorization", "Bearer " + secretKey)
+                    .body(transferRequest)
+                    .retrieve()
+                    .body(FlutterwaveTransferResponse.class);
+        } catch (Exception e) {
+            return new DisbursalResult(false, null, "Flutterwave transfer request failed: " + e.getMessage());
+        }
+
+        if (response == null || response.data() == null) {
+            return new DisbursalResult(false, null, "Empty response from Flutterwave");
+        }
+
+        boolean accepted = "success".equals(response.status());
+        String reference = response.data().id() != null ? String.valueOf(response.data().id()) : null;
+        return new DisbursalResult(accepted, reference, response.message());
     }
 }
