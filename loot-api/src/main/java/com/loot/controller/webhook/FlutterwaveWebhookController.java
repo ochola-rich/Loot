@@ -5,6 +5,7 @@ import com.loot.domain.model.EntryPayment;
 import com.loot.domain.model.PrizeDisbursal;
 import com.loot.domain.repository.DisbursalRepository;
 import com.loot.domain.repository.PaymentRepository;
+import com.loot.gateway.flutterwave.FlutterwaveStatusMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -94,26 +95,25 @@ public class FlutterwaveWebhookController {
     }
 
     private void updatePaymentStatus(EntryPayment payment, String flwStatus) {
-        payment.setStatus(mapStatus(flwStatus));
+        payment.setStatus(FlutterwaveStatusMapper.toPaymentStatus(flwStatus).name());
         paymentRepository.save(payment);
     }
 
+    // Disbursal status isn't covered by PaymentStatus (t27) - it has
+    // PROCESSING/TIMEOUT states collections never need, and a second enum
+    // wasn't asked for. Still has to normalize Flutterwave's vocabulary
+    // ("SUCCESSFUL"/"FAILED"/"NEW"/"PENDING") to the same strings the Daraja
+    // disbursal side stores ("CONFIRMED"/"FAILED"/"PROCESSING") - otherwise
+    // DisbursalRepository.findByTournamentIdAndStatus("CONFIRMED") would
+    // silently miss every Flutterwave-originated disbursal.
     private void updateDisbursalStatus(PrizeDisbursal disbursal, String flwStatus) {
-        disbursal.setStatus(mapStatus(flwStatus));
-        disbursalRepository.save(disbursal);
-    }
-
-    // Placeholder mapping - t27 replaces this (and Daraja's inline ResultCode
-    // checks) with a shared PaymentStatus enum + dedicated status mappers.
-    private String mapStatus(String flwStatus) {
-        if (flwStatus == null) {
-            return "PENDING";
-        }
-        return switch (flwStatus.toLowerCase()) {
-            case "successful" -> "CONFIRMED";
-            case "failed" -> "FAILED";
-            default -> "PENDING";
+        String normalized = flwStatus == null ? "PROCESSING" : switch (flwStatus.toUpperCase()) {
+            case "SUCCESSFUL" -> "CONFIRMED";
+            case "FAILED" -> "FAILED";
+            default -> "PROCESSING";
         };
+        disbursal.setStatus(normalized);
+        disbursalRepository.save(disbursal);
     }
 
     private boolean constantTimeEquals(String a, String b) {

@@ -7,6 +7,7 @@ import com.loot.domain.model.WebhookEvent;
 import com.loot.domain.repository.DisbursalRepository;
 import com.loot.domain.repository.PaymentRepository;
 import com.loot.domain.repository.WebhookEventRepository;
+import com.loot.gateway.mpesa.DarajaStatusMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -87,7 +88,7 @@ public class MpesaWebhookController {
     }
 
     private void updatePaymentStatus(EntryPayment payment, StkCallback callback) {
-        payment.setStatus(callback.resultCode() == 0 ? "CONFIRMED" : "FAILED");
+        payment.setStatus(DarajaStatusMapper.toPaymentStatus(callback.resultCode()).name());
         paymentRepository.save(payment);
     }
 
