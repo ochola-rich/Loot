@@ -3,8 +3,11 @@ package com.loot.gateway.flutterwave;
 /**
  * Builds the Flutterwave Transfers request body for a single payout.
  * account_bank "MPS" is Flutterwave's bank code for M-Pesa mobile money
- * payouts in Kenya. Hardcoded to KES for the same reason as the charge
- * side (t24) - currency lands with the Money value object in t28.
+ * payouts in Kenya - the plan never gave a confirmed bank code for UGX/GHS/
+ * TZS mobile money transfers, so this factory (and FlutterwaveGateway)
+ * still only supports KES payouts. Guessing a bank code for the others
+ * risks silently misrouting a real payout, which is worse than not
+ * supporting it yet.
  *
  * Only single transfers (POST /v3/transfers) are wired here - bulk_transfers
  * doesn't fit PaymentGateway's one-DisbursalRequest-at-a-time contract, and
@@ -13,16 +16,15 @@ package com.loot.gateway.flutterwave;
  */
 public class FlutterwaveTransferRequestFactory {
 
-    static final String ACCOUNT_BANK = "MPS";
-    private static final String CURRENCY = "KES";
+    static final String KES_ACCOUNT_BANK = "MPS";
 
     public FlutterwaveTransferRequest build(String transactionId, String recipientPhone, String amount,
-                                             String narration) {
+                                             String currency, String narration) {
         return new FlutterwaveTransferRequest(
-                ACCOUNT_BANK,
+                KES_ACCOUNT_BANK,
                 recipientPhone,
                 amount,
-                CURRENCY,
+                currency,
                 narration,
                 transactionId
         );

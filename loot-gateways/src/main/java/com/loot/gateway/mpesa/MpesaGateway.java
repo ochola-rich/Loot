@@ -3,6 +3,7 @@ package com.loot.gateway.mpesa;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.loot.domain.model.WebhookEvent;
+import com.loot.domain.money.CurrencyGatewaySupport;
 import com.loot.domain.repository.WebhookEventRepository;
 import com.loot.gateway.GatewayHttpClients;
 import com.loot.gateway.CollectionRequest;
@@ -47,6 +48,9 @@ public class MpesaGateway implements PaymentGateway {
 
     @Override
     public CollectionResult initiateCollection(CollectionRequest req) {
+        if (!CurrencyGatewaySupport.isSupported(req.currency(), "MPESA")) {
+            return new CollectionResult(false, null, "M-Pesa does not support currency " + req.currency());
+        }
         String amount = req.amount().setScale(0, RoundingMode.HALF_UP).toPlainString();
         StkPushRequest stkRequest = stkPushRequestFactory.build(
                 req.playerPhone(), amount, req.transactionId(), req.description());
@@ -79,6 +83,9 @@ public class MpesaGateway implements PaymentGateway {
 
     @Override
     public DisbursalResult initiatePayout(DisbursalRequest req) {
+        if (!CurrencyGatewaySupport.isSupported(req.currency(), "MPESA")) {
+            return new DisbursalResult(false, null, "M-Pesa does not support currency " + req.currency());
+        }
         String amount = req.amount().setScale(0, RoundingMode.HALF_UP).toPlainString();
         B2CRequest b2cRequest = b2cRequestFactory.build(req.recipientPhone(), amount, req.description());
 

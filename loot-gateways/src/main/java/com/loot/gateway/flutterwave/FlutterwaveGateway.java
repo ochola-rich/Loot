@@ -1,5 +1,6 @@
 package com.loot.gateway.flutterwave;
 
+import com.loot.domain.money.CurrencyGatewaySupport;
 import com.loot.gateway.CollectionRequest;
 import com.loot.gateway.CollectionResult;
 import com.loot.gateway.DisbursalRequest;
@@ -27,14 +28,23 @@ public class FlutterwaveGateway implements PaymentGateway {
 
     @Override
     public CollectionResult initiateCollection(CollectionRequest req) {
+        if (!CurrencyGatewaySupport.isSupported(req.currency(), "FLUTTERWAVE")) {
+            return new CollectionResult(false, null, "Flutterwave does not support currency " + req.currency());
+        }
+        String chargeType = chargeRequestFactory.chargeTypeFor(req.currency());
+        if (chargeType == null) {
+            return new CollectionResult(false, null,
+                    "No Flutterwave mobile money charge type known for currency " + req.currency());
+        }
+
         String amount = req.amount().toPlainString();
         FlutterwaveChargeRequest chargeRequest = chargeRequestFactory.build(
-                req.transactionId(), req.playerPhone(), amount);
+                req.transactionId(), req.playerPhone(), amount, req.currency());
 
         FlutterwaveChargeResponse response;
         try {
             response = restClient.post()
-                    .uri("/v3/charges?type=" + FlutterwaveChargeRequestFactory.CHARGE_TYPE)
+                    .uri("/v3/charges?type=" + chargeType)
                     .header("Authorization", "Bearer " + secretKey)
                     .body(chargeRequest)
                     .retrieve()
@@ -53,9 +63,16 @@ public class FlutterwaveGateway implements PaymentGateway {
 
     @Override
     public DisbursalResult initiatePayout(DisbursalRequest req) {
+        if (!"KES".equals(req.currency())) {
+            // Only KES has a confirmed Flutterwave bank code (MPS) - see
+            // FlutterwaveTransferRequestFactory for why the others aren't wired.
+            return new DisbursalResult(false, null,
+                    "Flutterwave payouts only support KES currently, got " + req.currency());
+        }
+
         String amount = req.amount().toPlainString();
         FlutterwaveTransferRequest transferRequest = transferRequestFactory.build(
-                req.transactionId(), req.recipientPhone(), amount, req.description());
+                req.transactionId(), req.recipientPhone(), amount, req.currency(), req.description());
 
         FlutterwaveTransferResponse response;
         try {

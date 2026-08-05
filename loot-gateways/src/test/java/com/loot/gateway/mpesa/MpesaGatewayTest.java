@@ -66,7 +66,7 @@ class MpesaGatewayTest {
                          "CustomerMessage":"Success"}""")));
 
         CollectionResult result = gateway.initiateCollection(
-                new CollectionRequest("txn-1", "254712345678", BigDecimal.valueOf(100), "Entry Fee"));
+                new CollectionRequest("txn-1", "254712345678", BigDecimal.valueOf(100), "KES", "Entry Fee"));
 
         assertThat(result.isSuccessful()).isTrue();
         assertThat(result.gatewayReference()).isEqualTo("ws_1");
@@ -81,7 +81,7 @@ class MpesaGatewayTest {
                          "ResponseCode":"1","ResponseDescription":"Insufficient funds"}""")));
 
         CollectionResult result = gateway.initiateCollection(
-                new CollectionRequest("txn-1", "254712345678", BigDecimal.valueOf(100), "Entry Fee"));
+                new CollectionRequest("txn-1", "254712345678", BigDecimal.valueOf(100), "KES", "Entry Fee"));
 
         assertThat(result.isSuccessful()).isFalse();
     }
@@ -92,7 +92,7 @@ class MpesaGatewayTest {
                 .willReturn(aResponse().withStatus(500)));
 
         CollectionResult result = gateway.initiateCollection(
-                new CollectionRequest("txn-1", "254712345678", BigDecimal.valueOf(100), "Entry Fee"));
+                new CollectionRequest("txn-1", "254712345678", BigDecimal.valueOf(100), "KES", "Entry Fee"));
 
         assertThat(result.isSuccessful()).isFalse();
         verify(webhookEventRepository).save(any());
@@ -106,7 +106,7 @@ class MpesaGatewayTest {
                          "ResponseCode":"0","ResponseDescription":"Accept the service request successfully."}""")));
 
         DisbursalResult result = gateway.initiatePayout(
-                new DisbursalRequest("txn-2", "254712345678", BigDecimal.valueOf(500), "Prize payout"));
+                new DisbursalRequest("txn-2", "254712345678", BigDecimal.valueOf(500), "KES", "Prize payout"));
 
         assertThat(result.isSuccessful()).isTrue();
         assertThat(result.gatewayReference()).isEqualTo("conv1");
@@ -120,7 +120,7 @@ class MpesaGatewayTest {
                          "ResponseCode":"2001","ResponseDescription":"Invalid initiator credentials"}""")));
 
         DisbursalResult result = gateway.initiatePayout(
-                new DisbursalRequest("txn-2", "254712345678", BigDecimal.valueOf(500), "Prize payout"));
+                new DisbursalRequest("txn-2", "254712345678", BigDecimal.valueOf(500), "KES", "Prize payout"));
 
         assertThat(result.isSuccessful()).isFalse();
     }
