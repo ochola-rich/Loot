@@ -9,7 +9,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
 
 /**
  * Selects a gateway via GatewayRoutingStrategy, calls it, and on failure
@@ -29,14 +33,43 @@ public class PaymentOrchestrator {
     private final Map<String, PaymentGateway> gatewaysByBeanName;
     private final GatewayRoutingStrategy routingStrategy;
     private final GatewayHealthRegistry healthRegistry;
+    private final ExecutorService payoutExecutor;
 
     public PaymentOrchestrator(
             Map<String, PaymentGateway> gatewaysByBeanName,
             GatewayRoutingStrategy routingStrategy,
-            GatewayHealthRegistry healthRegistry) {
+            GatewayHealthRegistry healthRegistry,
+            ExecutorService payoutExecutor) {
         this.gatewaysByBeanName = gatewaysByBeanName;
         this.routingStrategy = routingStrategy;
         this.healthRegistry = healthRegistry;
+        this.payoutExecutor = payoutExecutor;
+    }
+
+    /**
+     * Dispatches each payout to its own virtual thread and waits for all of
+     * them - a blocking I/O call per winner is exactly what virtual threads
+     * are for, no thread pool sizing needed even for a large winner list.
+     * Partial failure is expected: one winner's payout failing doesn't stop
+     * or affect the others, it's just recorded in that slot of the result.
+     */
+    public List<DisbursalResult> processBulkPayout(List<DisbursalRequest> payouts) {
+        List<Future<DisbursalResult>> futures = new ArrayList<>(payouts.size());
+        for (DisbursalRequest req : payouts) {
+            futures.add(payoutExecutor.submit(() -> processPayout(req)));
+        }
+
+        List<DisbursalResult> results = new ArrayList<>(payouts.size());
+        for (int i = 0; i < futures.size(); i++) {
+            DisbursalRequest req = payouts.get(i);
+            try {
+                results.add(futures.get(i).get());
+            } catch (Exception e) {
+                log.error("Payout task failed for {}: {}", req.transactionId(), e.getMessage());
+                results.add(new DisbursalResult(false, null, "Payout task failed: " + e.getMessage()));
+            }
+        }
+        return results;
     }
 
     public CollectionResult processCollection(CollectionRequest req) {
