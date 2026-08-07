@@ -8,7 +8,11 @@ import com.loot.gateway.DisbursalResult;
 import com.loot.gateway.GatewayHttpClients;
 import com.loot.gateway.PaymentGateway;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.retry.annotation.Backoff;
+import org.springframework.retry.annotation.Recover;
+import org.springframework.retry.annotation.Retryable;
 import org.springframework.stereotype.Component;
+import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.client.RestClient;
 
 @Component("flutterwaveGateway")
@@ -27,6 +31,8 @@ public class FlutterwaveGateway implements PaymentGateway {
     }
 
     @Override
+    @Retryable(retryFor = HttpServerErrorException.class, maxAttempts = 3,
+            backoff = @Backoff(delay = 1000, multiplier = 2))
     public CollectionResult initiateCollection(CollectionRequest req) {
         if (!CurrencyGatewaySupport.isSupported(req.currency(), "FLUTTERWAVE")) {
             return new CollectionResult(false, null, "Flutterwave does not support currency " + req.currency());
@@ -49,6 +55,8 @@ public class FlutterwaveGateway implements PaymentGateway {
                     .body(chargeRequest)
                     .retrieve()
                     .body(FlutterwaveChargeResponse.class);
+        } catch (HttpServerErrorException e) {
+            throw e; // let @Retryable catch and retry this
         } catch (Exception e) {
             return new CollectionResult(false, null, "Flutterwave charge request failed: " + e.getMessage());
         }
@@ -61,7 +69,14 @@ public class FlutterwaveGateway implements PaymentGateway {
         return new CollectionResult(accepted, response.data().flwRef(), response.message());
     }
 
+    @Recover
+    public CollectionResult recoverCollection(HttpServerErrorException e, CollectionRequest req) {
+        return new CollectionResult(false, null, "Flutterwave charge failed after retries: " + e.getMessage());
+    }
+
     @Override
+    @Retryable(retryFor = HttpServerErrorException.class, maxAttempts = 3,
+            backoff = @Backoff(delay = 1000, multiplier = 2))
     public DisbursalResult initiatePayout(DisbursalRequest req) {
         if (!"KES".equals(req.currency())) {
             // Only KES has a confirmed Flutterwave bank code (MPS) - see
@@ -82,6 +97,8 @@ public class FlutterwaveGateway implements PaymentGateway {
                     .body(transferRequest)
                     .retrieve()
                     .body(FlutterwaveTransferResponse.class);
+        } catch (HttpServerErrorException e) {
+            throw e;
         } catch (Exception e) {
             return new DisbursalResult(false, null, "Flutterwave transfer request failed: " + e.getMessage());
         }
@@ -93,5 +110,10 @@ public class FlutterwaveGateway implements PaymentGateway {
         boolean accepted = "success".equals(response.status());
         String reference = response.data().id() != null ? String.valueOf(response.data().id()) : null;
         return new DisbursalResult(accepted, reference, response.message());
+    }
+
+    @Recover
+    public DisbursalResult recoverPayout(HttpServerErrorException e, DisbursalRequest req) {
+        return new DisbursalResult(false, null, "Flutterwave transfer failed after retries: " + e.getMessage());
     }
 }

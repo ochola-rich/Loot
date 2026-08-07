@@ -14,11 +14,13 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.web.client.HttpServerErrorException;
 
 import java.math.BigDecimal;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.*;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 
@@ -87,14 +89,18 @@ class MpesaGatewayTest {
     }
 
     @Test
-    void initiateCollectionFailsGracefullyOnHttpError() {
+    void initiateCollectionOn5xxRecordsTheFailureThenPropagatesForRetry() {
+        // @Retryable/@Recover (t34) only apply through the Spring-managed proxy -
+        // this test constructs MpesaGateway directly, so a 5xx now throws instead
+        // of being caught. The retry-then-recover path is exercised for real
+        // through a Spring context in MpesaGatewayRetryTest (t36).
         wireMockServer.stubFor(post(urlPathEqualTo("/mpesa/stkpush/v1/processrequest"))
                 .willReturn(aResponse().withStatus(500)));
 
-        CollectionResult result = gateway.initiateCollection(
-                new CollectionRequest("txn-1", "254712345678", BigDecimal.valueOf(100), "KES", "Entry Fee"));
+        CollectionRequest req = new CollectionRequest("txn-1", "254712345678", BigDecimal.valueOf(100), "KES", "Entry Fee");
 
-        assertThat(result.isSuccessful()).isFalse();
+        assertThatThrownBy(() -> gateway.initiateCollection(req))
+                .isInstanceOf(HttpServerErrorException.class);
         verify(webhookEventRepository).save(any());
     }
 

@@ -12,7 +12,11 @@ import com.loot.gateway.DisbursalRequest;
 import com.loot.gateway.DisbursalResult;
 import com.loot.gateway.PaymentGateway;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.retry.annotation.Backoff;
+import org.springframework.retry.annotation.Recover;
+import org.springframework.retry.annotation.Retryable;
 import org.springframework.stereotype.Component;
+import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.client.RestClient;
 
 import java.math.RoundingMode;
@@ -47,6 +51,8 @@ public class MpesaGateway implements PaymentGateway {
     }
 
     @Override
+    @Retryable(retryFor = HttpServerErrorException.class, maxAttempts = 3,
+            backoff = @Backoff(delay = 1000, multiplier = 2))
     public CollectionResult initiateCollection(CollectionRequest req) {
         if (!CurrencyGatewaySupport.isSupported(req.currency(), "MPESA")) {
             return new CollectionResult(false, null, "M-Pesa does not support currency " + req.currency());
@@ -55,8 +61,7 @@ public class MpesaGateway implements PaymentGateway {
         StkPushRequest stkRequest = stkPushRequestFactory.build(
                 req.playerPhone(), amount, req.transactionId(), req.description());
 
-        StkPushResponse response = null;
-        String error = null;
+        StkPushResponse response;
         try {
             response = restClient.post()
                     .uri("/mpesa/stkpush/v1/processrequest")
@@ -64,15 +69,16 @@ public class MpesaGateway implements PaymentGateway {
                     .body(stkRequest)
                     .retrieve()
                     .body(StkPushResponse.class);
+        } catch (HttpServerErrorException e) {
+            recordEvent("STK_PUSH_REQUEST", stkRequest, null, e.getMessage());
+            throw e; // let @Retryable catch and retry this
         } catch (Exception e) {
-            error = e.getMessage();
+            recordEvent("STK_PUSH_REQUEST", stkRequest, null, e.getMessage());
+            return new CollectionResult(false, null, "STK Push request failed: " + e.getMessage());
         }
 
-        recordEvent("STK_PUSH_REQUEST", stkRequest, response, error);
+        recordEvent("STK_PUSH_REQUEST", stkRequest, response, null);
 
-        if (error != null) {
-            return new CollectionResult(false, null, "STK Push request failed: " + error);
-        }
         if (response == null) {
             return new CollectionResult(false, null, "Empty response from Daraja");
         }
@@ -81,7 +87,14 @@ public class MpesaGateway implements PaymentGateway {
         return new CollectionResult(accepted, response.checkoutRequestId(), response.responseDescription());
     }
 
+    @Recover
+    public CollectionResult recoverCollection(HttpServerErrorException e, CollectionRequest req) {
+        return new CollectionResult(false, null, "STK Push failed after retries: " + e.getMessage());
+    }
+
     @Override
+    @Retryable(retryFor = HttpServerErrorException.class, maxAttempts = 3,
+            backoff = @Backoff(delay = 1000, multiplier = 2))
     public DisbursalResult initiatePayout(DisbursalRequest req) {
         if (!CurrencyGatewaySupport.isSupported(req.currency(), "MPESA")) {
             return new DisbursalResult(false, null, "M-Pesa does not support currency " + req.currency());
@@ -89,8 +102,7 @@ public class MpesaGateway implements PaymentGateway {
         String amount = req.amount().setScale(0, RoundingMode.HALF_UP).toPlainString();
         B2CRequest b2cRequest = b2cRequestFactory.build(req.recipientPhone(), amount, req.description());
 
-        B2CResponse response = null;
-        String error = null;
+        B2CResponse response;
         try {
             response = restClient.post()
                     .uri("/mpesa/b2c/v3/paymentrequest")
@@ -98,21 +110,27 @@ public class MpesaGateway implements PaymentGateway {
                     .body(b2cRequest)
                     .retrieve()
                     .body(B2CResponse.class);
+        } catch (HttpServerErrorException e) {
+            recordEvent("B2C_PAYOUT_REQUEST", b2cRequest, null, e.getMessage());
+            throw e;
         } catch (Exception e) {
-            error = e.getMessage();
+            recordEvent("B2C_PAYOUT_REQUEST", b2cRequest, null, e.getMessage());
+            return new DisbursalResult(false, null, "B2C payout request failed: " + e.getMessage());
         }
 
-        recordEvent("B2C_PAYOUT_REQUEST", b2cRequest, response, error);
+        recordEvent("B2C_PAYOUT_REQUEST", b2cRequest, response, null);
 
-        if (error != null) {
-            return new DisbursalResult(false, null, "B2C payout request failed: " + error);
-        }
         if (response == null) {
             return new DisbursalResult(false, null, "Empty response from Daraja");
         }
 
         boolean accepted = "0".equals(response.responseCode());
         return new DisbursalResult(accepted, response.conversationId(), response.responseDescription());
+    }
+
+    @Recover
+    public DisbursalResult recoverPayout(HttpServerErrorException e, DisbursalRequest req) {
+        return new DisbursalResult(false, null, "B2C payout failed after retries: " + e.getMessage());
     }
 
     private void recordEvent(String eventType, Object request, Object response, String error) {
