@@ -72,16 +72,16 @@ public class PaymentOrchestrator {
         return results;
     }
 
-    public CollectionResult processCollection(CollectionRequest req) {
+    public CollectionOutcome processCollection(CollectionRequest req) {
         String primary = routingStrategy.selectGateway(req);
         CollectionResult result = attemptCollection(primary, req);
         if (result.isSuccessful()) {
-            return result;
+            return new CollectionOutcome(result, primary);
         }
 
         String fallback = routingStrategy.selectFallback(req, primary);
         if (fallback == null || fallback.equals(primary)) {
-            return result;
+            return new CollectionOutcome(result, primary);
         }
 
         // GATEWAY_FALLBACK audit event - structured logging for now; formal
@@ -95,7 +95,7 @@ public class PaymentOrchestrator {
                     req.transactionId(), primary, result.responseMessage(),
                     fallback, fallbackResult.responseMessage());
         }
-        return fallbackResult;
+        return new CollectionOutcome(fallbackResult, fallback);
     }
 
     public DisbursalResult processPayout(DisbursalRequest req) {

@@ -56,10 +56,11 @@ class PaymentOrchestratorTest {
         when(routingStrategy.selectGateway(req)).thenReturn("MPESA");
         when(mpesaGateway.initiateCollection(req)).thenReturn(new CollectionResult(true, "ref-1", "ok"));
 
-        CollectionResult result = orchestrator.processCollection(req);
+        CollectionOutcome outcome = orchestrator.processCollection(req);
 
-        assertThat(result.isSuccessful()).isTrue();
-        assertThat(result.gatewayReference()).isEqualTo("ref-1");
+        assertThat(outcome.result().isSuccessful()).isTrue();
+        assertThat(outcome.result().gatewayReference()).isEqualTo("ref-1");
+        assertThat(outcome.gateway()).isEqualTo("MPESA");
         verify(flutterwaveGateway, never()).initiateCollection(any());
     }
 
@@ -71,10 +72,11 @@ class PaymentOrchestratorTest {
         when(mpesaGateway.initiateCollection(req)).thenReturn(new CollectionResult(false, null, "declined"));
         when(flutterwaveGateway.initiateCollection(req)).thenReturn(new CollectionResult(true, "ref-2", "ok"));
 
-        CollectionResult result = orchestrator.processCollection(req);
+        CollectionOutcome outcome = orchestrator.processCollection(req);
 
-        assertThat(result.isSuccessful()).isTrue();
-        assertThat(result.gatewayReference()).isEqualTo("ref-2");
+        assertThat(outcome.result().isSuccessful()).isTrue();
+        assertThat(outcome.result().gatewayReference()).isEqualTo("ref-2");
+        assertThat(outcome.gateway()).isEqualTo("FLUTTERWAVE");
         verify(mpesaGateway).initiateCollection(req);
         verify(flutterwaveGateway).initiateCollection(req);
     }
@@ -87,10 +89,10 @@ class PaymentOrchestratorTest {
         when(mpesaGateway.initiateCollection(req)).thenThrow(new RuntimeException("connection refused"));
         when(flutterwaveGateway.initiateCollection(req)).thenReturn(new CollectionResult(true, "ref-3", "ok"));
 
-        CollectionResult result = orchestrator.processCollection(req);
+        CollectionOutcome outcome = orchestrator.processCollection(req);
 
-        assertThat(result.isSuccessful()).isTrue();
-        assertThat(result.gatewayReference()).isEqualTo("ref-3");
+        assertThat(outcome.result().isSuccessful()).isTrue();
+        assertThat(outcome.result().gatewayReference()).isEqualTo("ref-3");
     }
 
     @Test
@@ -100,9 +102,9 @@ class PaymentOrchestratorTest {
         when(routingStrategy.selectFallback(req, "FLUTTERWAVE")).thenReturn(null);
         when(flutterwaveGateway.initiateCollection(req)).thenReturn(new CollectionResult(false, null, "declined"));
 
-        CollectionResult result = orchestrator.processCollection(req);
+        CollectionOutcome outcome = orchestrator.processCollection(req);
 
-        assertThat(result.isSuccessful()).isFalse();
+        assertThat(outcome.result().isSuccessful()).isFalse();
         verify(mpesaGateway, never()).initiateCollection(any());
     }
 
