@@ -11,4 +11,6 @@ public interface PaymentRepository extends JpaRepository<EntryPayment, Long> {
     List<EntryPayment> findByTournamentIdAndStatus(long tournamentId, String status);
 
     Optional<EntryPayment> findByMpesaRef(String mpesaRef);
+
+    long countByTournamentIdAndStatusNot(long tournamentId, String status);
 }
