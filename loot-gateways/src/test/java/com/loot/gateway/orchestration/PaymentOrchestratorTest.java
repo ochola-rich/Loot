@@ -128,11 +128,12 @@ class PaymentOrchestratorTest {
         when(mpesaGateway.initiatePayout(req1)).thenReturn(new DisbursalResult(true, "ref-1", "ok"));
         when(mpesaGateway.initiatePayout(req2)).thenThrow(new RuntimeException("timeout"));
 
-        List<DisbursalResult> results = orchestrator.processBulkPayout(List.of(req1, req2));
+        List<DisbursalOutcome> results = orchestrator.processBulkPayout(List.of(req1, req2));
 
         assertThat(results).hasSize(2);
-        assertThat(results.get(0).isSuccessful()).isTrue();
-        assertThat(results.get(1).isSuccessful()).isFalse();
+        assertThat(results.get(0).result().isSuccessful()).isTrue();
+        assertThat(results.get(0).gateway()).isEqualTo("MPESA");
+        assertThat(results.get(1).result().isSuccessful()).isFalse();
     }
 
     private CollectionRequest collectionRequest() {

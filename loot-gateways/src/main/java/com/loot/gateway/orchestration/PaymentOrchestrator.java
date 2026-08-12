@@ -53,20 +53,21 @@ public class PaymentOrchestrator {
      * Partial failure is expected: one winner's payout failing doesn't stop
      * or affect the others, it's just recorded in that slot of the result.
      */
-    public List<DisbursalResult> processBulkPayout(List<DisbursalRequest> payouts) {
-        List<Future<DisbursalResult>> futures = new ArrayList<>(payouts.size());
+    public List<DisbursalOutcome> processBulkPayout(List<DisbursalRequest> payouts) {
+        List<Future<DisbursalOutcome>> futures = new ArrayList<>(payouts.size());
         for (DisbursalRequest req : payouts) {
             futures.add(payoutExecutor.submit(() -> processPayout(req)));
         }
 
-        List<DisbursalResult> results = new ArrayList<>(payouts.size());
+        List<DisbursalOutcome> results = new ArrayList<>(payouts.size());
         for (int i = 0; i < futures.size(); i++) {
             DisbursalRequest req = payouts.get(i);
             try {
                 results.add(futures.get(i).get());
             } catch (Exception e) {
                 log.error("Payout task failed for {}: {}", req.transactionId(), e.getMessage());
-                results.add(new DisbursalResult(false, null, "Payout task failed: " + e.getMessage()));
+                results.add(new DisbursalOutcome(
+                        new DisbursalResult(false, null, "Payout task failed: " + e.getMessage()), null));
             }
         }
         return results;
@@ -98,18 +99,18 @@ public class PaymentOrchestrator {
         return new CollectionOutcome(fallbackResult, fallback);
     }
 
-    public DisbursalResult processPayout(DisbursalRequest req) {
+    public DisbursalOutcome processPayout(DisbursalRequest req) {
         CollectionRequest asCollectionRequest = new CollectionRequest(
                 req.transactionId(), req.recipientPhone(), req.amount(), req.currency(), req.description());
         String primary = routingStrategy.selectGateway(asCollectionRequest);
         DisbursalResult result = attemptPayout(primary, req);
         if (result.isSuccessful()) {
-            return result;
+            return new DisbursalOutcome(result, primary);
         }
 
         String fallback = routingStrategy.selectFallback(asCollectionRequest, primary);
         if (fallback == null || fallback.equals(primary)) {
-            return result;
+            return new DisbursalOutcome(result, primary);
         }
 
         log.warn("GATEWAY_FALLBACK: {} failed for payout {} ({}), retrying on {}",
@@ -121,7 +122,7 @@ public class PaymentOrchestrator {
                     req.transactionId(), primary, result.responseMessage(),
                     fallback, fallbackResult.responseMessage());
         }
-        return fallbackResult;
+        return new DisbursalOutcome(fallbackResult, fallback);
     }
 
     private CollectionResult attemptCollection(String gatewayName, CollectionRequest req) {
