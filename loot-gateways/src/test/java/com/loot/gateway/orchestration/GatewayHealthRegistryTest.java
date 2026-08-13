@@ -2,6 +2,8 @@ package com.loot.gateway.orchestration;
 
 import org.junit.jupiter.api.Test;
 
+import java.time.Instant;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.within;
 
@@ -13,6 +15,28 @@ class GatewayHealthRegistryTest {
 
         assertThat(registry.successRate("MPESA")).isEqualTo(1.0);
         assertThat(registry.isHealthy("MPESA")).isTrue();
+    }
+
+    @Test
+    void noDataYetHasNoLatencyOrLastChecked() {
+        GatewayHealthRegistry registry = new GatewayHealthRegistry();
+
+        assertThat(registry.avgResponseTimeMillis("MPESA")).isEqualTo(-1);
+        assertThat(registry.lastCheckedAt("MPESA")).isNull();
+    }
+
+    @Test
+    void averagesResponseTimesWithinTheWindowAndTracksLastChecked() {
+        GatewayHealthRegistry registry = new GatewayHealthRegistry();
+        Instant before = Instant.now();
+
+        registry.record("MPESA", true, 100);
+        registry.record("MPESA", true, 200);
+        registry.record("MPESA", true, 300);
+
+        assertThat(registry.avgResponseTimeMillis("MPESA")).isEqualTo(200.0);
+        assertThat(registry.lastResponseTimeMillis("MPESA")).isEqualTo(300);
+        assertThat(registry.lastCheckedAt("MPESA")).isNotNull().isAfterOrEqualTo(before);
     }
 
     @Test
