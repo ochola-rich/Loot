@@ -2,6 +2,8 @@ package com.loot.controller.tournament;
 
 import com.loot.domain.model.Tournament;
 import com.loot.domain.repository.TournamentRepository;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -17,6 +19,7 @@ import org.springframework.web.util.UriComponentsBuilder;
 
 @RestController
 @RequestMapping("/api/v1/tournaments")
+@Tag(name = "Tournaments")
 public class TournamentController {
 
     private static final String STATUS_OPEN = "OPEN";
@@ -30,6 +33,7 @@ public class TournamentController {
         this.tournamentMapper = tournamentMapper;
     }
 
+    @Operation(summary = "Create tournament", description = "Creates a new tournament in OPEN status.")
     @PostMapping
     public ResponseEntity<TournamentResponse> create(
             @Valid @RequestBody CreateTournamentRequest request, UriComponentsBuilder uriBuilder) {
@@ -42,11 +46,13 @@ public class TournamentController {
                 .body(tournamentMapper.toResponse(saved));
     }
 
+    @Operation(summary = "List tournaments", description = "Paginated list of all tournaments.")
     @GetMapping
     public Page<TournamentResponse> list(Pageable pageable) {
         return tournamentRepository.findAll(pageable).map(tournamentMapper::toResponse);
     }
 
+    @Operation(summary = "Get tournament by ID")
     @GetMapping("/{id}")
     public ResponseEntity<TournamentResponse> getById(@PathVariable long id) {
         return tournamentRepository.findById(id)
@@ -55,6 +61,8 @@ public class TournamentController {
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
+    @Operation(summary = "Close tournament",
+            description = "Transitions an OPEN tournament to CLOSED. Rejects a tournament that isn't OPEN with 409.")
     @PatchMapping("/{id}/close")
     public ResponseEntity<TournamentResponse> close(@PathVariable long id) {
         return tournamentRepository.findById(id)

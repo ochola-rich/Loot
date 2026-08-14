@@ -7,6 +7,8 @@ import com.loot.domain.repository.TournamentRepository;
 import com.loot.gateway.DisbursalRequest;
 import com.loot.gateway.orchestration.DisbursalOutcome;
 import com.loot.gateway.orchestration.PaymentOrchestrator;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -24,6 +26,7 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/disbursals")
+@Tag(name = "Disbursals")
 public class DisbursalController {
 
     private static final String STATUS_CLOSED = "CLOSED";
@@ -47,6 +50,8 @@ public class DisbursalController {
         this.disbursalMapper = disbursalMapper;
     }
 
+    @Operation(summary = "Trigger a single prize payout",
+            description = "Pays one winner. Rejects with 409 unless the tournament is CLOSED.")
     @PostMapping("/trigger")
     public ResponseEntity<DisbursalResponse> trigger(@Valid @RequestBody TriggerDisbursalRequest request) {
         Optional<ResponseEntity<DisbursalResponse>> rejection = rejectUnlessClosed(request.tournamentId());
@@ -66,6 +71,10 @@ public class DisbursalController {
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
+    @Operation(summary = "Bulk prize payout",
+            description = "Pays a list of winners concurrently and marks the tournament DISBURSED once the run "
+                    + "completes, regardless of individual per-winner outcome. Rejects with 409 unless the "
+                    + "tournament is CLOSED.")
     @PostMapping("/bulk")
     public ResponseEntity<List<DisbursalResponse>> bulk(@Valid @RequestBody BulkDisbursalRequest request) {
         Optional<ResponseEntity<DisbursalResponse>> rejection = rejectUnlessClosed(request.tournamentId());
@@ -91,6 +100,7 @@ public class DisbursalController {
         return ResponseEntity.ok(responses);
     }
 
+    @Operation(summary = "Get disbursal status by ID")
     @GetMapping("/{id}/status")
     public ResponseEntity<DisbursalResponse> status(@PathVariable long id) {
         return disbursalRepository.findById(id)

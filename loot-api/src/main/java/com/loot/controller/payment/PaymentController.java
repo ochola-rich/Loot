@@ -10,6 +10,9 @@ import com.loot.domain.repository.TournamentRepository;
 import com.loot.gateway.CollectionRequest;
 import com.loot.gateway.orchestration.CollectionOutcome;
 import com.loot.gateway.orchestration.PaymentOrchestrator;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -28,6 +31,7 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/payments")
+@Tag(name = "Payments")
 public class PaymentController {
 
     private static final Logger log = LoggerFactory.getLogger(PaymentController.class);
@@ -58,9 +62,15 @@ public class PaymentController {
         this.objectMapper = objectMapper;
     }
 
+    @Operation(summary = "Collect entry fee",
+            description = "Initiates entry-fee collection for a tournament via the routed payment gateway. "
+                    + "Rejects with 404 if the tournament doesn't exist, 409 if it isn't OPEN or is full, "
+                    + "and 402 if the gateway declines the charge.")
     @PostMapping("/collect")
     public ResponseEntity<PaymentResponse> collect(
             @Valid @RequestBody CollectPaymentRequest request,
+            @Parameter(description = "Client-supplied key so a retried request isn't double-charged; "
+                    + "a repeat key is rejected with 409 rather than reprocessed")
             @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKeyHeader) {
 
         Optional<Tournament> maybeTournament = tournamentRepository.findById(request.tournamentId());
@@ -110,6 +120,7 @@ public class PaymentController {
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
+    @Operation(summary = "Get payment status by gateway reference")
     @GetMapping("/{reference}/status")
     public ResponseEntity<PaymentResponse> status(@PathVariable String reference) {
         return paymentRepository.findByMpesaRef(reference)
