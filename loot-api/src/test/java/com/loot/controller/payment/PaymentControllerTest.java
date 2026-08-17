@@ -154,7 +154,8 @@ class PaymentControllerTest {
                         .content(objectMapper.writeValueAsString(
                                 new CollectPaymentRequest(1L, "+254712345678"))))
                 .andExpect(status().isPaymentRequired())
-                .andExpect(jsonPath("$.status").value("FAILED"));
+                .andExpect(jsonPath("$.errorCode").value("PAYMENT_FAILED"))
+                .andExpect(jsonPath("$.message").value("Insufficient funds"));
     }
 
     @Test

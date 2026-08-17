@@ -4,6 +4,8 @@ import com.loot.domain.model.PrizeDisbursal;
 import com.loot.domain.model.Tournament;
 import com.loot.domain.repository.DisbursalRepository;
 import com.loot.domain.repository.TournamentRepository;
+import com.loot.exception.PaymentFailedException;
+import com.loot.exception.TournamentNotFoundException;
 import com.loot.gateway.DisbursalRequest;
 import com.loot.gateway.orchestration.DisbursalOutcome;
 import com.loot.gateway.orchestration.PaymentOrchestrator;
@@ -18,10 +20,10 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 
 @RestController
@@ -54,21 +56,16 @@ public class DisbursalController {
             description = "Pays one winner. Rejects with 409 unless the tournament is CLOSED.")
     @PostMapping("/trigger")
     public ResponseEntity<DisbursalResponse> trigger(@Valid @RequestBody TriggerDisbursalRequest request) {
-        Optional<ResponseEntity<DisbursalResponse>> rejection = rejectUnlessClosed(request.tournamentId());
-        if (rejection.isPresent()) {
-            return rejection.get();
-        }
-        Tournament tournament = tournamentRepository.findById(request.tournamentId()).orElseThrow();
+        Tournament tournament = findClosedOrThrow(request.tournamentId());
 
         DisbursalRequest payoutRequest = toDisbursalRequest(tournament, request.winner());
         DisbursalOutcome outcome = paymentOrchestrator.processPayout(payoutRequest);
         PrizeDisbursal saved = save(tournament, request.winner(), outcome);
 
-        DisbursalResponse response = disbursalMapper.toResponse(saved);
         if (!outcome.result().isSuccessful()) {
-            return ResponseEntity.status(HttpStatus.PAYMENT_REQUIRED).body(response);
+            throw new PaymentFailedException(outcome.result().responseMessage());
         }
-        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+        return ResponseEntity.status(HttpStatus.CREATED).body(disbursalMapper.toResponse(saved));
     }
 
     @Operation(summary = "Bulk prize payout",
@@ -77,11 +74,7 @@ public class DisbursalController {
                     + "tournament is CLOSED.")
     @PostMapping("/bulk")
     public ResponseEntity<List<DisbursalResponse>> bulk(@Valid @RequestBody BulkDisbursalRequest request) {
-        Optional<ResponseEntity<DisbursalResponse>> rejection = rejectUnlessClosed(request.tournamentId());
-        if (rejection.isPresent()) {
-            return ResponseEntity.status(rejection.get().getStatusCode()).build();
-        }
-        Tournament tournament = tournamentRepository.findById(request.tournamentId()).orElseThrow();
+        Tournament tournament = findClosedOrThrow(request.tournamentId());
 
         List<DisbursalRequest> payoutRequests = request.winners().stream()
                 .map(winner -> toDisbursalRequest(tournament, winner))
@@ -102,22 +95,19 @@ public class DisbursalController {
 
     @Operation(summary = "Get disbursal status by ID")
     @GetMapping("/{id}/status")
-    public ResponseEntity<DisbursalResponse> status(@PathVariable long id) {
+    public DisbursalResponse status(@PathVariable long id) {
         return disbursalRepository.findById(id)
                 .map(disbursalMapper::toResponse)
-                .map(ResponseEntity::ok)
-                .orElseGet(() -> ResponseEntity.notFound().build());
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Disbursal " + id + " not found"));
     }
 
-    private Optional<ResponseEntity<DisbursalResponse>> rejectUnlessClosed(long tournamentId) {
-        Optional<Tournament> maybeTournament = tournamentRepository.findById(tournamentId);
-        if (maybeTournament.isEmpty()) {
-            return Optional.of(ResponseEntity.notFound().build());
+    private Tournament findClosedOrThrow(long tournamentId) {
+        Tournament tournament = tournamentRepository.findById(tournamentId)
+                .orElseThrow(() -> new TournamentNotFoundException(tournamentId));
+        if (!STATUS_CLOSED.equals(tournament.getStatus())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Tournament " + tournamentId + " is not CLOSED");
         }
-        if (!STATUS_CLOSED.equals(maybeTournament.get().getStatus())) {
-            return Optional.of(ResponseEntity.status(HttpStatus.CONFLICT).build());
-        }
-        return Optional.empty();
+        return tournament;
     }
 
     private DisbursalRequest toDisbursalRequest(Tournament tournament, WinnerPayout winner) {

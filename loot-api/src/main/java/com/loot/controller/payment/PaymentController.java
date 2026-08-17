@@ -10,6 +10,8 @@ import com.loot.domain.repository.TournamentRepository;
 import com.loot.gateway.CollectionRequest;
 import com.loot.gateway.orchestration.CollectionOutcome;
 import com.loot.gateway.orchestration.PaymentOrchestrator;
+import com.loot.exception.PaymentFailedException;
+import com.loot.exception.TournamentNotFoundException;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -25,8 +27,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ResponseStatusException;
 
-import java.util.Optional;
 import java.util.UUID;
 
 @RestController
@@ -73,24 +75,21 @@ public class PaymentController {
                     + "a repeat key is rejected with 409 rather than reprocessed")
             @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKeyHeader) {
 
-        Optional<Tournament> maybeTournament = tournamentRepository.findById(request.tournamentId());
-        if (maybeTournament.isEmpty()) {
-            return ResponseEntity.notFound().build();
-        }
-        Tournament tournament = maybeTournament.get();
+        Tournament tournament = tournamentRepository.findById(request.tournamentId())
+                .orElseThrow(() -> new TournamentNotFoundException(request.tournamentId()));
 
         if (!STATUS_OPEN.equals(tournament.getStatus())) {
-            return ResponseEntity.status(HttpStatus.CONFLICT).build();
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Tournament " + tournament.getId() + " is not OPEN");
         }
 
         long activeEntries = paymentRepository.countByTournamentIdAndStatusNot(tournament.getId(), STATUS_FAILED);
         if (activeEntries >= tournament.getMaxEntries()) {
-            return ResponseEntity.status(HttpStatus.CONFLICT).build();
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Tournament " + tournament.getId() + " is full");
         }
 
         String idempotencyKey = idempotencyKeyHeader != null ? idempotencyKeyHeader : UUID.randomUUID().toString();
         if (gatewayTransactionRepository.findByIdempotencyKey(idempotencyKey).isPresent()) {
-            return ResponseEntity.status(HttpStatus.CONFLICT).build();
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Idempotency key already used");
         }
 
         CollectionRequest collectionRequest = new CollectionRequest(
@@ -109,24 +108,22 @@ public class PaymentController {
         payment.setGateway(outcome.gateway());
         payment.setStatus(outcome.result().isSuccessful() ? STATUS_INITIATED : STATUS_FAILED);
         payment.setMpesaRef(outcome.result().gatewayReference());
-        EntryPayment saved = paymentRepository.save(payment);
+        paymentRepository.save(payment);
 
         recordGatewayTransaction(idempotencyKey, outcome, collectionRequest);
 
-        PaymentResponse response = paymentMapper.toResponse(saved);
         if (!outcome.result().isSuccessful()) {
-            return ResponseEntity.status(HttpStatus.PAYMENT_REQUIRED).body(response);
+            throw new PaymentFailedException(outcome.result().responseMessage());
         }
-        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+        return ResponseEntity.status(HttpStatus.CREATED).body(paymentMapper.toResponse(payment));
     }
 
     @Operation(summary = "Get payment status by gateway reference")
     @GetMapping("/{reference}/status")
-    public ResponseEntity<PaymentResponse> status(@PathVariable String reference) {
+    public PaymentResponse status(@PathVariable String reference) {
         return paymentRepository.findByMpesaRef(reference)
                 .map(paymentMapper::toResponse)
-                .map(ResponseEntity::ok)
-                .orElseGet(() -> ResponseEntity.notFound().build());
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "No payment found for reference " + reference));
     }
 
     private void recordGatewayTransaction(String idempotencyKey, CollectionOutcome outcome, CollectionRequest request) {
