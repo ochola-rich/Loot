@@ -5,6 +5,7 @@ import lombok.Getter;
 import lombok.Setter;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
+import com.loot.crypto.PhoneNumberConverter;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
@@ -27,8 +28,9 @@ public class PrizeDisbursal {
     @Column(name = "tournament_id", nullable = false)                               
     private Long tournamentId;                                                      
                                                                                     
-    @Column(name = "recipient_phone", nullable = false)                             
-    private String recipientPhone;                                                  
+    @Column(name = "recipient_phone", nullable = false)
+    @Convert(converter = PhoneNumberConverter.class)
+    private String recipientPhone;                                               
                                                                                     
     @Column(name = "amount_kes", nullable = false)                                  
     private BigDecimal amountKes;                                                   

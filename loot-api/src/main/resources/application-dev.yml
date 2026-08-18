@@ -19,6 +19,13 @@ flutterwave:
   secret-key: ${FLW_SECRET_KEY}
   webhook-secret-hash: ${FLW_WEBHOOK_SECRET_HASH}
 
+app:
+  encryption:
+    # Dev-only fallback so local setup works without extra config - never used
+    # outside this profile. Generate a real key with:
+    #   python3 -c "import base64,os; print(base64.b64encode(os.urandom(32)).decode())"
+    phone-key: ${PHONE_ENCRYPTION_KEY:MX3nyTDbkALzOiyMXJc3mQVPChZ8D7L8oNrZxD+OWF0=}
+
 logging:
   level:
     com.loot: DEBUG
