@@ -1,6 +1,7 @@
 package com.loot.controller.payment;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.loot.audit.AuditLogService;
 import com.loot.domain.model.EntryPayment;
 import com.loot.domain.model.Tournament;
 import com.loot.domain.repository.GatewayTransactionRepository;
@@ -23,6 +24,7 @@ import java.util.Optional;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -53,6 +55,9 @@ class PaymentControllerTest {
 
     @MockitoBean
     private PaymentOrchestrator paymentOrchestrator;
+
+    @MockitoBean
+    private AuditLogService auditLogService;
 
     @Test
     void collectReturns404WhenTournamentMissing() throws Exception {
@@ -98,7 +103,7 @@ class PaymentControllerTest {
         Tournament tournament = openTournament(1L, 64);
         when(tournamentRepository.findById(1L)).thenReturn(Optional.of(tournament));
         when(paymentRepository.countByTournamentIdAndStatusNot(1L, "FAILED")).thenReturn(0L);
-        when(gatewayTransactionRepository.findByIdempotencyKey("dup-key"))
+        when(gatewayTransactionRepository.findByIdempotencyKeyAndCreatedAtAfter(eq("dup-key"), any()))
                 .thenReturn(Optional.of(new com.loot.domain.model.GatewayTransaction()));
 
         mockMvc.perform(post("/api/v1/payments/collect")
@@ -116,7 +121,7 @@ class PaymentControllerTest {
         Tournament tournament = openTournament(1L, 64);
         when(tournamentRepository.findById(1L)).thenReturn(Optional.of(tournament));
         when(paymentRepository.countByTournamentIdAndStatusNot(1L, "FAILED")).thenReturn(0L);
-        when(gatewayTransactionRepository.findByIdempotencyKey(anyString())).thenReturn(Optional.empty());
+        when(gatewayTransactionRepository.findByIdempotencyKeyAndCreatedAtAfter(anyString(), any())).thenReturn(Optional.empty());
         when(paymentOrchestrator.processCollection(any()))
                 .thenReturn(new CollectionOutcome(new CollectionResult(true, "ws_ref_1", "Accepted"), "MPESA"));
         when(paymentRepository.save(any(EntryPayment.class))).thenAnswer(invocation -> {
@@ -144,7 +149,7 @@ class PaymentControllerTest {
         Tournament tournament = openTournament(1L, 64);
         when(tournamentRepository.findById(1L)).thenReturn(Optional.of(tournament));
         when(paymentRepository.countByTournamentIdAndStatusNot(1L, "FAILED")).thenReturn(0L);
-        when(gatewayTransactionRepository.findByIdempotencyKey(anyString())).thenReturn(Optional.empty());
+        when(gatewayTransactionRepository.findByIdempotencyKeyAndCreatedAtAfter(anyString(), any())).thenReturn(Optional.empty());
         when(paymentOrchestrator.processCollection(any()))
                 .thenReturn(new CollectionOutcome(new CollectionResult(false, null, "Insufficient funds"), "MPESA"));
         when(paymentRepository.save(any(EntryPayment.class))).thenAnswer(invocation -> invocation.getArgument(0));

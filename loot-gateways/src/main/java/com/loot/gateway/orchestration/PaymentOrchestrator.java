@@ -1,5 +1,6 @@
 package com.loot.gateway.orchestration;
 
+import com.loot.audit.AuditLogService;
 import com.loot.gateway.CollectionRequest;
 import com.loot.gateway.CollectionResult;
 import com.loot.gateway.DisbursalRequest;
@@ -34,16 +35,19 @@ public class PaymentOrchestrator {
     private final GatewayRoutingStrategy routingStrategy;
     private final GatewayHealthRegistry healthRegistry;
     private final ExecutorService payoutExecutor;
+    private final AuditLogService auditLogService;
 
     public PaymentOrchestrator(
             Map<String, PaymentGateway> gatewaysByBeanName,
             GatewayRoutingStrategy routingStrategy,
             GatewayHealthRegistry healthRegistry,
-            ExecutorService payoutExecutor) {
+            ExecutorService payoutExecutor,
+            AuditLogService auditLogService) {
         this.gatewaysByBeanName = gatewaysByBeanName;
         this.routingStrategy = routingStrategy;
         this.healthRegistry = healthRegistry;
         this.payoutExecutor = payoutExecutor;
+        this.auditLogService = auditLogService;
     }
 
     /**
@@ -85,10 +89,7 @@ public class PaymentOrchestrator {
             return new CollectionOutcome(result, primary);
         }
 
-        // GATEWAY_FALLBACK audit event - structured logging for now; formal
-        // AuditLogService persistence lands in t48.
-        log.warn("GATEWAY_FALLBACK: {} failed for transaction {} ({}), retrying on {}",
-                primary, req.transactionId(), result.responseMessage(), fallback);
+        auditLogService.gatewayFallback(primary, fallback, req.transactionId(), result.responseMessage());
 
         CollectionResult fallbackResult = attemptCollection(fallback, req);
         if (!fallbackResult.isSuccessful()) {
@@ -113,8 +114,7 @@ public class PaymentOrchestrator {
             return new DisbursalOutcome(result, primary);
         }
 
-        log.warn("GATEWAY_FALLBACK: {} failed for payout {} ({}), retrying on {}",
-                primary, req.transactionId(), result.responseMessage(), fallback);
+        auditLogService.gatewayFallback(primary, fallback, req.transactionId(), result.responseMessage());
 
         DisbursalResult fallbackResult = attemptPayout(fallback, req);
         if (!fallbackResult.isSuccessful()) {

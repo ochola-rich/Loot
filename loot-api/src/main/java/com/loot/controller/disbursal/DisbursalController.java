@@ -1,5 +1,6 @@
 package com.loot.controller.disbursal;
 
+import com.loot.audit.AuditLogService;
 import com.loot.domain.model.PrizeDisbursal;
 import com.loot.domain.model.Tournament;
 import com.loot.domain.repository.DisbursalRepository;
@@ -40,16 +41,19 @@ public class DisbursalController {
     private final DisbursalRepository disbursalRepository;
     private final PaymentOrchestrator paymentOrchestrator;
     private final DisbursalMapper disbursalMapper;
+    private final AuditLogService auditLogService;
 
     public DisbursalController(
             TournamentRepository tournamentRepository,
             DisbursalRepository disbursalRepository,
             PaymentOrchestrator paymentOrchestrator,
-            DisbursalMapper disbursalMapper) {
+            DisbursalMapper disbursalMapper,
+            AuditLogService auditLogService) {
         this.tournamentRepository = tournamentRepository;
         this.disbursalRepository = disbursalRepository;
         this.paymentOrchestrator = paymentOrchestrator;
         this.disbursalMapper = disbursalMapper;
+        this.auditLogService = auditLogService;
     }
 
     @Operation(summary = "Trigger a single prize payout",
@@ -127,6 +131,11 @@ public class DisbursalController {
         disbursal.setGateway(outcome.gateway());
         disbursal.setStatus(outcome.result().isSuccessful() ? STATUS_PROCESSING : STATUS_FAILED);
         disbursal.setGatewayRef(outcome.result().gatewayReference());
-        return disbursalRepository.save(disbursal);
+        PrizeDisbursal saved = disbursalRepository.save(disbursal);
+
+        auditLogService.payoutSent(tournament.getId(), outcome.gateway(), winner.amountKes(),
+                outcome.result().gatewayReference(), outcome.result().isSuccessful());
+
+        return saved;
     }
 }

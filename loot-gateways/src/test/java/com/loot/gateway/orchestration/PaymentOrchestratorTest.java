@@ -1,5 +1,6 @@
 package com.loot.gateway.orchestration;
 
+import com.loot.audit.AuditLogService;
 import com.loot.gateway.CollectionRequest;
 import com.loot.gateway.CollectionResult;
 import com.loot.gateway.DisbursalRequest;
@@ -35,6 +36,9 @@ class PaymentOrchestratorTest {
     @Mock
     GatewayRoutingStrategy routingStrategy;
 
+    @Mock
+    AuditLogService auditLogService;
+
     GatewayHealthRegistry healthRegistry;
     ExecutorService executor;
     PaymentOrchestrator orchestrator;
@@ -47,7 +51,7 @@ class PaymentOrchestratorTest {
                 "mpesaGateway", mpesaGateway,
                 "flutterwaveGateway", flutterwaveGateway
         );
-        orchestrator = new PaymentOrchestrator(gateways, routingStrategy, healthRegistry, executor);
+        orchestrator = new PaymentOrchestrator(gateways, routingStrategy, healthRegistry, executor, auditLogService);
     }
 
     @Test

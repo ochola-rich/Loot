@@ -1,6 +1,7 @@
 package com.loot.controller.payment;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.loot.audit.AuditLogService;
 import com.loot.domain.model.EntryPayment;
 import com.loot.domain.model.GatewayTransaction;
 import com.loot.domain.model.Tournament;
@@ -29,6 +30,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.UUID;
 
 @RestController
@@ -41,6 +44,7 @@ public class PaymentController {
     private static final String STATUS_OPEN = "OPEN";
     private static final String STATUS_INITIATED = "INITIATED";
     private static final String STATUS_FAILED = "FAILED";
+    private static final long IDEMPOTENCY_WINDOW_HOURS = 24;
 
     private final TournamentRepository tournamentRepository;
     private final PaymentRepository paymentRepository;
@@ -48,6 +52,7 @@ public class PaymentController {
     private final PaymentOrchestrator paymentOrchestrator;
     private final PaymentMapper paymentMapper;
     private final ObjectMapper objectMapper;
+    private final AuditLogService auditLogService;
 
     public PaymentController(
             TournamentRepository tournamentRepository,
@@ -55,13 +60,15 @@ public class PaymentController {
             GatewayTransactionRepository gatewayTransactionRepository,
             PaymentOrchestrator paymentOrchestrator,
             PaymentMapper paymentMapper,
-            ObjectMapper objectMapper) {
+            ObjectMapper objectMapper,
+            AuditLogService auditLogService) {
         this.tournamentRepository = tournamentRepository;
         this.paymentRepository = paymentRepository;
         this.gatewayTransactionRepository = gatewayTransactionRepository;
         this.paymentOrchestrator = paymentOrchestrator;
         this.paymentMapper = paymentMapper;
         this.objectMapper = objectMapper;
+        this.auditLogService = auditLogService;
     }
 
     @Operation(summary = "Collect entry fee",
@@ -88,8 +95,10 @@ public class PaymentController {
         }
 
         String idempotencyKey = idempotencyKeyHeader != null ? idempotencyKeyHeader : UUID.randomUUID().toString();
-        if (gatewayTransactionRepository.findByIdempotencyKey(idempotencyKey).isPresent()) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Idempotency key already used");
+        Instant idempotencyWindowStart = Instant.now().minus(IDEMPOTENCY_WINDOW_HOURS, ChronoUnit.HOURS);
+        if (gatewayTransactionRepository.findByIdempotencyKeyAndCreatedAtAfter(idempotencyKey, idempotencyWindowStart).isPresent()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Idempotency key already used within the last " + IDEMPOTENCY_WINDOW_HOURS + " hours");
         }
 
         CollectionRequest collectionRequest = new CollectionRequest(
@@ -111,6 +120,8 @@ public class PaymentController {
         paymentRepository.save(payment);
 
         recordGatewayTransaction(idempotencyKey, outcome, collectionRequest);
+        auditLogService.paymentInitiated(
+                tournament.getId(), outcome.gateway(), tournament.getEntryFeeKes(), outcome.result().gatewayReference());
 
         if (!outcome.result().isSuccessful()) {
             throw new PaymentFailedException(outcome.result().responseMessage());

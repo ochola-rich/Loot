@@ -1,6 +1,7 @@
 package com.loot.controller.disbursal;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.loot.audit.AuditLogService;
 import com.loot.domain.model.PrizeDisbursal;
 import com.loot.domain.model.Tournament;
 import com.loot.domain.repository.DisbursalRepository;
@@ -51,6 +52,9 @@ class DisbursalControllerTest {
 
     @MockitoBean
     private PaymentOrchestrator paymentOrchestrator;
+
+    @MockitoBean
+    private AuditLogService auditLogService;
 
     @Test
     void triggerReturns404WhenTournamentMissing() throws Exception {
