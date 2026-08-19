@@ -1,3 +1,6 @@
+server:
+  forward-headers-strategy: framework
+
 spring:
   datasource:
     url: ${DATABASE_URL}
@@ -13,11 +16,18 @@ daraja:
   callback-base-url: ${DARAJA_CALLBACK_BASE_URL}
   initiator-name: ${DARAJA_INITIATOR_NAME:testapi}
   security-credential: ${DARAJA_SECURITY_CREDENTIAL}
+  callback-allowed-ips: ${DARAJA_CALLBACK_ALLOWED_IPS:}
 
 flutterwave:
   base-url: ${FLW_BASE_URL:https://api.flutterwave.com}
   secret-key: ${FLW_SECRET_KEY}
   webhook-secret-hash: ${FLW_WEBHOOK_SECRET_HASH}
+
+app:
+  security:
+    require-https: true
+  encryption:
+    phone-key: ${PHONE_ENCRYPTION_KEY}
 
 logging:
   level:
