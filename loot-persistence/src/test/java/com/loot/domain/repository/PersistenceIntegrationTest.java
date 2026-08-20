@@ -1,5 +1,6 @@
 package com.loot.domain.repository;
 
+import com.loot.crypto.PhoneNumberConverter;
 import com.loot.domain.model.EntryPayment;
 import com.loot.domain.model.GatewayTransaction;
 import com.loot.domain.model.Tournament;
@@ -7,6 +8,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -15,6 +17,8 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 import java.math.BigDecimal;
+import java.security.SecureRandom;
+import java.util.Base64;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -22,6 +26,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 @DataJpaTest(properties = "spring.jpa.hibernate.ddl-auto=validate")
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
+@Import(PhoneNumberConverter.class)
 @Testcontainers
 class PersistenceIntegrationTest {
 
@@ -33,6 +38,13 @@ class PersistenceIntegrationTest {
         registry.add("spring.datasource.url", postgres::getJdbcUrl);
         registry.add("spring.datasource.username", postgres::getUsername);
         registry.add("spring.datasource.password", postgres::getPassword);
+
+        // @DataJpaTest doesn't component-scan @Component converters by default,
+        // hence the explicit @Import above - it still needs the key property
+        // PhoneNumberConverter's constructor requires.
+        byte[] key = new byte[32];
+        new SecureRandom().nextBytes(key);
+        registry.add("app.encryption.phone-key", () -> Base64.getEncoder().encodeToString(key));
     }
 
     @Autowired

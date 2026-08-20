@@ -27,6 +27,8 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 import java.math.BigDecimal;
+import java.security.SecureRandom;
+import java.util.Base64;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -70,6 +72,10 @@ class FlutterwaveIntegrationTest {
         registry.add("flutterwave.webhook-secret-hash", () -> TEST_WEBHOOK_SECRET);
         registry.add("flutterwave.secret-key", () ->
                 System.getenv().getOrDefault("FLW_SECRET_KEY", "FLWSECK_TEST-dummy"));
+
+        byte[] phoneKey = new byte[32];
+        new SecureRandom().nextBytes(phoneKey);
+        registry.add("app.encryption.phone-key", () -> Base64.getEncoder().encodeToString(phoneKey));
     }
 
     @LocalServerPort
