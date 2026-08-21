@@ -1,0 +1,47 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: lootdb
+      POSTGRES_USER: loot
+      POSTGRES_PASSWORD: loot
+    ports:
+      - "5432:5432"
+    volumes:
+      - loot-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U loot -d lootdb"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Not wired into RateLimitFilter yet - it's in-memory per instance today,
+  # fine for local dev and a single-instance deployment. Provisioned here so
+  # a Redis-backed Bucket4j proxy manager can be dropped in without changing
+  # the compose topology once a multi-instance deployment needs it.
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  app:
+    build: .
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/lootdb
+      DB_USERNAME: loot
+      DB_PASSWORD: loot
+      DARAJA_CONSUMER_KEY: ${DARAJA_CONSUMER_KEY:-changeme}
+      DARAJA_CONSUMER_SECRET: ${DARAJA_CONSUMER_SECRET:-changeme}
+      DARAJA_PASSKEY: ${DARAJA_PASSKEY:-changeme}
+      DARAJA_SECURITY_CREDENTIAL: ${DARAJA_SECURITY_CREDENTIAL:-changeme}
+      FLW_SECRET_KEY: ${FLW_SECRET_KEY:-changeme}
+      FLW_WEBHOOK_SECRET_HASH: ${FLW_WEBHOOK_SECRET_HASH:-changeme}
+    ports:
+      - "8080:8080"
+
+volumes:
+  loot-postgres-data:
