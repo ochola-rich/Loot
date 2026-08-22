@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.slf4j.MDC;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -138,6 +139,24 @@ class PaymentOrchestratorTest {
         assertThat(results.get(0).result().isSuccessful()).isTrue();
         assertThat(results.get(0).gateway()).isEqualTo("MPESA");
         assertThat(results.get(1).result().isSuccessful()).isFalse();
+    }
+
+    @Test
+    void populatesMdcWithGatewayContextDuringTheCallAndClearsItAfterward() {
+        CollectionRequest req = collectionRequest();
+        when(routingStrategy.selectGateway(req)).thenReturn("MPESA");
+        when(mpesaGateway.initiateCollection(req)).thenAnswer(invocation -> {
+            assertThat(MDC.get("transactionId")).isEqualTo("txn-1");
+            assertThat(MDC.get("gateway")).isEqualTo("MPESA");
+            assertThat(MDC.get("amount")).isEqualTo("10");
+            return new CollectionResult(true, "ref-1", "ok");
+        });
+
+        orchestrator.processCollection(req);
+
+        assertThat(MDC.get("transactionId")).isNull();
+        assertThat(MDC.get("gateway")).isNull();
+        assertThat(MDC.get("amount")).isNull();
     }
 
     private CollectionRequest collectionRequest() {

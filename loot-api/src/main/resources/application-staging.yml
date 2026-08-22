@@ -32,3 +32,6 @@ app:
 logging:
   level:
     com.loot: INFO
+  structured:
+    format:
+      console: logstash

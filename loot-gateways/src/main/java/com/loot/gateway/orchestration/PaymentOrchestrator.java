@@ -8,8 +8,10 @@ import com.loot.gateway.DisbursalResult;
 import com.loot.gateway.PaymentGateway;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -130,6 +132,7 @@ public class PaymentOrchestrator {
         if (gateway == null) {
             return new CollectionResult(false, null, "No gateway available for " + gatewayName);
         }
+        withGatewayMdc(req.transactionId(), gatewayName, req.amount());
         try {
             CollectionResult result = gateway.initiateCollection(req);
             healthRegistry.record(gatewayName, result.isSuccessful());
@@ -137,6 +140,8 @@ public class PaymentOrchestrator {
         } catch (Exception e) {
             healthRegistry.record(gatewayName, false);
             return new CollectionResult(false, null, gatewayName + " threw: " + e.getMessage());
+        } finally {
+            clearGatewayMdc();
         }
     }
 
@@ -145,6 +150,7 @@ public class PaymentOrchestrator {
         if (gateway == null) {
             return new DisbursalResult(false, null, "No gateway available for " + gatewayName);
         }
+        withGatewayMdc(req.transactionId(), gatewayName, req.amount());
         try {
             DisbursalResult result = gateway.initiatePayout(req);
             healthRegistry.record(gatewayName, result.isSuccessful());
@@ -152,7 +158,21 @@ public class PaymentOrchestrator {
         } catch (Exception e) {
             healthRegistry.record(gatewayName, false);
             return new DisbursalResult(false, null, gatewayName + " threw: " + e.getMessage());
+        } finally {
+            clearGatewayMdc();
         }
+    }
+
+    private void withGatewayMdc(String transactionId, String gatewayName, BigDecimal amount) {
+        MDC.put("transactionId", transactionId);
+        MDC.put("gateway", gatewayName);
+        MDC.put("amount", amount.toPlainString());
+    }
+
+    private void clearGatewayMdc() {
+        MDC.remove("transactionId");
+        MDC.remove("gateway");
+        MDC.remove("amount");
     }
 
     private PaymentGateway resolveGateway(String gatewayName) {
