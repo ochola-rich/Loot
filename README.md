@@ -5,10 +5,13 @@ M-Pesa (Safaricom Daraja) and Flutterwave, with automatic gateway fallback,
 health-based routing, and a virtual-thread payout dispatcher for bulk
 disbursals.
 
-Modules: `loot-core` (domain model, no framework deps beyond JPA),
-`loot-persistence` (repositories, Flyway migrations), `loot-gateways`
-(Daraja/Flutterwave clients, orchestration, routing), `loot-api` (REST
-controllers, security, the Spring Boot entry point).
+Modules: [`loot-core`](loot-core/README.md) (domain model, no framework
+deps beyond JPA), [`loot-persistence`](loot-persistence/README.md)
+(repositories, Flyway migrations), [`loot-gateways`](loot-gateways/README.md)
+(Daraja/Flutterwave clients, orchestration, routing),
+[`loot-api`](loot-api/README.md) (REST controllers, security, the Spring
+Boot entry point). Each module's README is the architecture reference for
+what it owns — this file is just setup and usage.
 
 ## Prerequisites
 
